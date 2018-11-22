@@ -1,0 +1,161 @@
+<html>
+    <head>
+        <style>
+html, body {
+    margin: 5px;
+    padding: 0;
+}
+td, th { 
+    padding: 10px;
+}
+table {
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+        </style>
+        <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    </head>
+    <body>
+        
+        <div id="app">
+            <textarea v-model="i94raw" rows="10" cols="33" placeholder="paste I-94 data. Ex:&#13;&#10;1&#13;&#10;2019-01-02&#13;&#10;Departure&#13;&#10;NYC&#13;&#10;2&#13;&#10;2018-06-18&#13;&#10;Arrival&#13;&#10;NYC"></textarea>
+            <!--p>{{ i94 }}</p>
+            <p>{{ i94_years }}</p>
+            <p>{{ i94_days }}</p>
+            <p>{{ i94_status }}</p-->
+            <table v-if="i94_valid" border="1">
+              <thead>
+                <tr>
+                  <th scope="col"></th>
+                  <th scope="col" v-for="year in i94_years">{{ year }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Days present in the USA</th>
+                  <td v-for="days in i94_days">{{ days }}</th>
+                </tr>
+                <tr>
+                  <th scope="row">Resident status</th>
+                  <td v-for="status in i94_status">{{ status }}</th>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else>
+              <ol>
+                <li>Visit <a href="https://i94.cbp.dhs.gov/I94/#/home">https://i94.cbp.dhs.gov/I94/#/home</a> and click "View travel history"</li>
+                <li>Enter your personal details and submit the request</li>
+                <li>Copy resulting I-94 table data</li>
+                <li>Paste copied data in the input field above</li>
+              </ol>
+            </div>
+        </div>
+        
+        <script>
+function parseI94Data(data){
+  var x = data.replace(/^[^ -~]*|[^ -~]*$/gm, '').split(/[\r\n]+/);
+  var d = [];
+  for (var i=0; i+3<x.length; i+=4)
+  {
+    var m = x[i+1].match(/^(\d+)\-(\d+)\-(\d+)$/);
+    if (d.length != x[i] - 1 || (x[i+2] != 'Arrival' && x[i+2] != 'Departure') || !m)
+      return 'invalid data';
+    d.push([new Date(m[1], m[2]-1, m[3]), x[i+2]=='Departure' ? 'D' : 'A']);
+  }
+  return d;
+}
+function calculatePresence(d)
+{
+  if (!d.length)
+    return [];
+  const msDay = 24 * 60 * 60 * 1000;
+  var present = d[0][1]=='A';
+  var now = new Date();
+  var t = (new Date(now.getFullYear(), now.getMonth(), now.getDate())).getTime();
+  var year = now.getFullYear(), yearEnd = d[d.length-1][0].getFullYear();
+  var ret = [];
+  var pos = 0, presentCount = 0, nextT = d[pos][0].getTime();
+  for (;;)
+  {
+    var y = (new Date(t)).getFullYear();
+    if (y != year)
+    {
+      ret.push([year, presentCount]);
+      if (y < yearEnd)
+        break;
+      presentCount = 0;
+      year = y;
+    }
+    if (present)
+      presentCount++;
+    while (t <= nextT)
+    {
+      pos++;
+      var p0 = pos >= d.length ? !present : d[pos][1]=='A';
+      var t0 = pos >= d.length ? nextT - 1000*msDay : d[pos][0].getTime();
+      if (p0 == present)
+      {
+        present = !p0;
+        nextT = (nextT + t0)/2;
+        pos--;
+      }
+      else
+      {
+        present = p0;
+        nextT = t0;
+      }
+    }
+    t -= msDay;
+  }
+  return ret;
+}
+
+function calculateStatus(d)
+{
+  var ret = [];
+  for (var i=0; i<d.length; ++i)
+  {
+    var days = d[i];
+    if (i > 0)
+      days += d[i-1]/3;
+    if (i > 1)
+      days += d[i-2]/6;
+    ret.push(days >= 183 && d[i] >= 31 ? 'R' : 'NR');
+  }
+  return ret;
+}
+
+var app = new Vue({
+  el: '#app',
+  data: {
+    i94raw: ''
+  },
+  computed: {
+    i94() {
+      return calculatePresence(parseI94Data(this.i94raw));
+    },
+    i94_years() {
+      var ret = [];
+      for (const el of this.i94)
+        ret.push(el[0]);
+      ret.reverse();
+      return ret;
+    },
+    i94_days() {
+      var ret = [];
+      for (const el of this.i94)
+        ret.push(el[1]);
+      ret.reverse();
+      return ret;
+    },
+    i94_status() {
+      return calculateStatus(this.i94_days);
+    },
+    i94_valid() {
+      return Array.isArray(this.i94) && this.i94.length > 0;
+    }
+  }
+});
+        </script>
+    </body>
+</html>
