@@ -48,6 +48,9 @@ table {
                 <li>Copy resulting I-94 table data</li>
                 <li>Paste copied data in the input field above</li>
               </ol>
+              <div v-if="i94_invalid">
+              <strong>Error: provided data isn't valid I-94 record.</strong>
+              </div>
             </div>
         </div>
         
@@ -131,8 +134,14 @@ var app = new Vue({
     i94raw: ''
   },
   computed: {
+    i94parsed() {
+      return parseI94Data(this.i94raw);
+    },
+    i94_invalid() {
+      return !Array.isArray(this.i94parsed);
+    },
     i94() {
-      return calculatePresence(parseI94Data(this.i94raw));
+      return this.i94_invalid ? [] : calculatePresence(this.i94parsed);
     },
     i94_years() {
       var ret = [];
