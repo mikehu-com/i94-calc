@@ -19,28 +19,38 @@ table {
         
         <div id="app">
             <textarea v-model="i94raw" rows="10" cols="33" placeholder="paste I-94 data. Ex:&#13;&#10;1&#13;&#10;2019-01-02&#13;&#10;Departure&#13;&#10;NYC&#13;&#10;2&#13;&#10;2018-06-18&#13;&#10;Arrival&#13;&#10;NYC"></textarea>
+            <br/>
+            <input type="checkbox" id="checkbox" v-model="is_alien">
+            <label for="checkbox">Are you a foreign/alien person?</label>
             <!--p>{{ i94 }}</p>
             <p>{{ i94_years }}</p>
             <p>{{ i94_days }}</p>
             <p>{{ i94_status }}</p-->
-            <table v-if="i94_valid" border="1">
-              <thead>
-                <tr>
-                  <th scope="col"></th>
-                  <th scope="col" v-for="year in i94_years">{{ year }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">Days present in the USA</th>
-                  <td v-for="days in i94_days">{{ days }}</th>
-                </tr>
-                <tr>
-                  <th scope="row">Resident status</th>
-                  <td v-for="status in i94_status">{{ status }}</th>
-                </tr>
-              </tbody>
-            </table>
+            <div v-if="i94_valid">
+              <table border="1">
+                <thead>
+                  <tr>
+                    <th scope="col"></th>
+                    <th scope="col" v-for="year in i94_years">{{ year }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Days present in the USA</th>
+                    <td v-for="days in i94_days">{{ days }}</th>
+                  </tr>
+                  <tr>
+                    <th scope="row">Resident status</th>
+                    <td v-for="status in i94_status">{{ status }}</th>
+                  </tr>
+                </tbody>
+              </table>
+              <br/>
+              <div v-if="is_alien">
+                <div v-if="i94_residentYears.length">Form <a href="https://www.irs.gov/forms-pubs/about-form-1040">1040</a> shold be used for the following years: {{ i94_residentYears | formatYears }}</div>
+                <div v-if="i94_nonresidentYears.length">Form <a href="https://www.irs.gov/forms-pubs/about-form-1040-nr">1040-NR</a> shold be used for the following years: {{ i94_nonresidentYears | formatYears }}</div>
+              </div>
+            </div>
             <div v-else>
               <ol>
                 <li>Visit <a href="https://i94.cbp.dhs.gov/I94/#/home">https://i94.cbp.dhs.gov/I94/#/home</a> and click "View travel history"</li>
@@ -128,10 +138,27 @@ function calculateStatus(d)
   return ret;
 }
 
+function filterYears(years, status, type)
+{
+  var ret = [];
+  for (var i=0; i<years.length; ++i)
+  {
+    if (status[i] == type)
+      ret.push(years[i]);
+  }
+  return ret;
+}
+
 var app = new Vue({
   el: '#app',
   data: {
-    i94raw: ''
+    i94raw: '',
+    is_alien: false
+  },
+  filters: {
+    formatYears: function(years) {
+      return years.toString().replace(/\[|\]/g, '');
+    }
   },
   computed: {
     i94parsed() {
@@ -162,6 +189,12 @@ var app = new Vue({
     },
     i94_valid() {
       return Array.isArray(this.i94) && this.i94.length > 0;
+    },
+    i94_residentYears() {
+      return filterYears(this.i94_years, this.i94_status, 'R');
+    },
+    i94_nonresidentYears() {
+      return filterYears(this.i94_years, this.i94_status, 'NR');
     }
   }
 });
